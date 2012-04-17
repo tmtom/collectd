@@ -192,6 +192,74 @@ static int mbus_slave_record_check(mbus_slave * slave, int record_number)
     return result;
 }
 
+
+/** 
+ * Connect to the MBus
+ * 
+ * Potential locking has to be done outside (not handled here).
+ *
+ * @return Zero when successful.
+ */
+static int collectd_mbus_connect(void)
+{
+    DEBUG("mbus: collectd_mbus_connect");
+    if(conf_is_serial > 0)
+    {
+        handle = mbus_connect_serial(conf_device);
+        if (handle == NULL)
+        {
+            ERROR("mbus: collectd_mbus_connect - Failed to setup serial connection to M-bus gateway");
+            pthread_mutex_unlock (&plugin_lock);
+            return -1;
+        }
+    }
+    else
+    {
+        handle = mbus_connect_tcp(conf_host, conf_port);
+        if (handle == NULL)
+        {
+            ERROR("mbus: collectd_mbus_connect - Failed to setup tcp connection to M-bus gateway");
+            pthread_mutex_unlock (&plugin_lock);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+
+/** 
+ * Disconnect from the MBus
+ * 
+ * Potential locking has to be done outside (not handled here).
+ *
+ */
+static void collectd_mbus_disconnect(void)
+{
+    DEBUG("mbus: collectd_mbus_disconnect");
+    if(handle != NULL)
+    {
+        mbus_disconnect(handle);
+        handle = NULL;
+    }
+}
+
+
+/** 
+ * Reconnect MBus
+ * 
+ * Potential locking has to be done outside (not handled here).
+ *
+ * @return Zero when successful.
+ */
+static int collectd_mbus_reconnect(void)
+{
+    int result;
+    DEBUG("mbus: collectd_mbus_reconnect");
+    collectd_mbus_disconnect();
+    result = collectd_mbus_connect();
+    return result;
+}
+
 /* =============================== CONFIGURATION ================================= */
 
 /** 
@@ -428,32 +496,15 @@ static int collectd_mbus_config (oconfig_item_t *ci)
  */
 static int collectd_mbus_init (void)
 {
+    int result;
     DEBUG("mbus: collectd_mbus_init");
 
     pthread_mutex_lock (&plugin_lock);
-    if(conf_is_serial > 0)
-    {
-        handle = mbus_connect_serial(conf_device);
-        if (handle == NULL)
-        {
-            ERROR("mbus: collectd_mbus_init - Failed to setup serial connection to M-bus gateway");
-            pthread_mutex_unlock (&plugin_lock);
-            return -1;
-        }
-    }
-    else
-    {
-        handle = mbus_connect_tcp(conf_host, conf_port);
-        if (handle == NULL)
-        {
-            ERROR("mbus: collectd_mbus_init - Failed to setup tcp connection to M-bus gateway");
-            pthread_mutex_unlock (&plugin_lock);
-            return -1;
-        }
-    }
+
+    result = collectd_mbus_connect();
 
     pthread_mutex_unlock (&plugin_lock);
-    return (0);
+    return (result);
 }
 
 /* =============================== SHUTDOWN ================================= */
@@ -473,8 +524,8 @@ static int collectd_mbus_shutdown (void)
     DEBUG("mbus: collectd_mbus_shutdown");
 
     pthread_mutex_lock (&plugin_lock);
-    if(handle != NULL)
-        mbus_disconnect(handle);
+
+    collectd_mbus_disconnect();
 
     while(current_slave != NULL)
     {
@@ -807,7 +858,16 @@ static int collectd_mbus_read (void)
 
     for(current_slave = mbus_slaves; current_slave != NULL; current_slave = current_slave->next_slave)
     {
+        // when reading fails, try to reconnect MBus and retry once more
         result = mbus_read_slave(handle, &(current_slave->address), &reply);
+        if(result)
+        {
+            WARNING ("mbus: collectd_mbus_read - read failed, trying to reconnect MBus ...");
+
+            result = collectd_mbus_reconnect();
+            if(!result)
+                result = mbus_read_slave(handle, &(current_slave->address), &reply);
+        }
         if(result)
         {
             if(current_slave->address.is_primary)
@@ -834,7 +894,7 @@ static int collectd_mbus_read (void)
 /* =============================== REGISTER ================================= */
 
 /** 
- * PLugin "entry" - register all callback.
+ * Plugin "entry" - register all callback.
  * 
  */
 void module_register (void)
