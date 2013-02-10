@@ -2112,6 +2112,147 @@ TCP-Port to connect to. Defaults to B<411>.
 
 =back
 
+=head2 Plugin C<mbus>
+
+The C<mbus plugin> uses M-Bus (or meter bus) to retreive various records from instruments like
+utility meters (electricity, gas, heat, etc.).
+
+The plugin is based on the libmbus from FreeSCADA (see http://www.rscada.se/libmbus). There
+are supported two types of MBus gateways: serial and network.
+
+The serial is basically a locally connected MBus signal levels converter (plus optional
+galvanic isolation). It is connected to a serial port (either a "real" one like /dev/ttyS0
+or using some USB converter - /dev/ttyUSB0 or anything else with the characteristics of
+a serial interface).
+
+The network gateway (TCP) provides the MBus data remotely over TCP/IP.
+
+For the plugin configuration you have to setup the MBus gateway - either serial device or TCP
+(host, port).
+
+In both cases the data and message format are the same. For more details please refer to the
+libmbus documentation.
+
+It is recommended to scan your MBus using libmbus utilities and also do one read of the devices
+so that you get the full information and know how to configure this plugin (what records you
+actually need to read/collect).
+I.e. do something like:
+ for TCP
+    mbus-tcp-scan 192.168.0.100 10001
+
+ for serial
+    mbus-serial-scan /dev/ttyS0
+
+Note that for serial connection not all MBus device support speed autoselection.
+Then you have to match the speed of the device and the plugin. You can either try to change
+the device speed manually using the utility "mbus-serial-switch-baudrate" or use the current
+device speed (see the option "BaudRate" below and libmbus package documentation).
+
+Then you have to list all MBus slaves you want to query using either primary address (integer 1 
+to 250) or secondary address (16 digits). For each slave you define the record selection logic
+(whether only the listed records are read or only these are omitted).
+
+The available data structure is driven by the principles of the MBus. I.e. on a single bus
+there are (in general) multiple devices - here simply refered as (MBus) "slaves". Each slave
+can provide several records (values/data) in a single read. The actual meaning (quantity 
+type, units) and number of records are dynamic and are described in the response/record as well. 
+
+The records are internally numbered (starting from zero) so that we can select/filter out only
+certain records.
+
+The record quantity and value is normalized (where possible) by the libmbus.
+
+Only numerical records are supported and all are stored as GAUGE. The output structure is:
+
+  host                         = <hostname>
+     plugin                    = "mbus"
+        plugin_instance        = <MBus slave address>  e.g. 237483A847B34800
+           value_type          = <Record quantity>     e.g. "Volume flow"
+           value_type_instance = <Record number>       e.g. 1
+
+The reason for this is because we want a separate rrdtool database for each record and that
+I<types.db> is "indexed" by value_type.
+
+Note that the standard I<types.db> does not support all MBus types and you need to use your
+own (or the provided I<types.mbus.db>). I.e. every used "value_type" which is filled by the
+MBus record quantity has to be in the types database.
+
+Note that the other record details provided by the MBus are not propagated to the collectd
+data (e.g. quantity unit, quantity medium or function). However thanks to normalization this
+should not be a showstopper.
+
+Synopsis of the configuration is:
+
+ <Plugin mbus>
+     IsSerial     true
+     SerialDevice "/dev/ttyUSB0"
+     BaudRate     2400
+     Host         "none"
+     Port         "256"
+     <Slave 59>
+         IgnoreSelected true
+         Record         2
+         Record         5
+         Record         6
+     </Slave>
+     <Slave "237483A847B34800">
+         IgnoreSelected false
+         Record         1
+     </Slave>
+ </Plugin>
+
+=over 4
+
+=item B<IsSerial> I<Boolean>
+
+Are we using serial gateway (B<true>) or network (B<false>). See the explanation above.
+
+=item B<SerialDevice> I<Serial device>
+
+Name of the serial device - like I</dev/ttyS0> or I</dev/ttyUSB0>, etc (when using serial gateway).
+
+=item B<BaudRate> I<rate>
+
+Baud rate of the serial device. The plugin does not support automatic baud rate selection.
+Typical rates are 300, 2400 or 9600 (the standard defines rates 300, 600, 1200, 2400, 4800,
+9600, 19200 and 38400. Where 600, 1200, 4800 and 19200 are not recommended and rates above
+9600 are for future use).
+Default value (when not configured) is 2400.
+
+=item B<Host> I<Hostname>
+
+Hostname to connect to (when using network gateway).
+
+=item B<Port> I<Port>
+
+TCP-Port / service (string) to connect to (when using network gateway).
+
+=item E<lt>B<Slave> I<Address>E<gt> blocks
+
+Slave blocks define individual MBus slaves - devices to be read. B<Address> is either primary
+address (integer 1 to 250) or secondary address (string, 16 digits). The formal type (numeric
+versus string) is important as it is used to distinguish the two address types.
+Multiple slave blocks can be used.
+
+Within E<lt>B<Slave>E<gt> blocks, the following options are used:
+
+=over 4
+
+=item B<IgnoreSelected> I<Boolean>
+
+Record selection logic. When I<true> (default value) by default all records are read and
+only the listed ones are ignored. When I<false> only the listed records are read.
+
+=item B<Record> I<Record number>
+
+Record number to be included/omitted (based on B<IgnoreSelected>). Could be used multiple times.
+Note that records are numbered starting from zero. Records in fixed data structure are numbered
+0 and 1.
+
+=back
+
+=back
+
 =head2 Plugin C<md>
 
 The C<md plugin> collects information from Linux Software-RAID devices (md).
