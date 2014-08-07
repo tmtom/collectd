@@ -2184,6 +2184,47 @@ TCP-Port to connect to. Defaults to B<7634>.
 
 =back
 
+
+=head2 Plugin C<humidity>
+
+This plugin reads relativy air humidity (in %)  and temperature (in  C)  using
+humidity sensor HIH6130 or HIH6131 from Honeywell.
+For HW details see L<http://sensing.honeywell.com/honeywell-sensing-humidicon-hih6100-series-product-sheet-009059-6-en.pdf>.
+
+It was developed and tested under Linux only. The only platform dependency is
+the standard Linux i2c-dev interface (the particular bus driver has to
+support the XXXXXXXXX  command subset).
+
+Synopsis:
+  <Plugin "humidity">
+     Device  "/dev/i2c-0";
+     Address 0x27
+  </Plugin>
+
+=over 4
+
+=item B<Device> I<device>
+
+Device name of the I2C bus to which the sensor is connected. Note that typically
+you need to have loaded the i2c-dev module.
+Using i2c-tools you can check/list i2c buses available on your system by:
+
+  i2cdetect -l
+
+Then you can scan for devices on given bus. E.g. to scan the whole bus 0 use:
+
+  i2cdetect -y -a 0
+
+This way you should be able to verify that the pressure sensor (either type) is
+connected and detected on address 0x60.
+
+=item B<Address> I<value>
+
+Optional I2C address (0-0x7f). Default value is 0x27.
+
+=back
+
+
 =head2 Plugin C<interface>
 
 =over 4
