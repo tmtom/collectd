@@ -5116,6 +5116,7 @@ plugin_drbd="no"
 plugin_entropy="no"
 plugin_ethstat="no"
 plugin_fscache="no"
+plugin_humidity="no"
 plugin_interface="no"
 plugin_ipmi="no"
 plugin_ipvs="no"
@@ -5257,6 +5258,7 @@ fi
 if test "x$with_libi2c" = "xyes"
 then
 	plugin_barometer="yes"
+	plugin_humidity="yes"
 fi
 
 
@@ -5490,6 +5492,7 @@ AC_PLUGIN([filecount],   [yes],                [Count files in directories])
 AC_PLUGIN([fscache],     [$plugin_fscache],    [fscache statistics])
 AC_PLUGIN([gmond],       [$with_libganglia],   [Ganglia plugin])
 AC_PLUGIN([hddtemp],     [yes],                [Query hddtempd])
+AC_PLUGIN([humidity],    [$plugin_humidity],   [Humidity sensor on I2C])
 AC_PLUGIN([interface],   [$plugin_interface],  [Interface traffic statistics])
 AC_PLUGIN([ipmi],        [$plugin_ipmi],       [IPMI sensor statistics])
 AC_PLUGIN([iptables],    [$with_libiptc],      [IPTables rule counters])
@@ -5861,6 +5864,7 @@ Configuration:
     fscache . . . . . . . $enable_fscache
     gmond . . . . . . . . $enable_gmond
     hddtemp . . . . . . . $enable_hddtemp
+    humidity  . . . . . . $enable_humidity
     interface . . . . . . $enable_interface
     ipmi  . . . . . . . . $enable_ipmi
     iptables  . . . . . . $enable_iptables

@@ -374,6 +374,15 @@ hddtemp_la_LIBADD += -lsocket
 endif
 endif
 
+if BUILD_PLUGIN_HUMIDITY
+pkglib_LTLIBRARIES += humidity.la
+humidity_la_SOURCES = humidity.c
+humidity_la_LDFLAGS = -module -avoid-version
+humidity_la_LIBADD = -lm
+collectd_LDADD += "-dlopen" humidity.la
+collectd_DEPENDENCIES += humidity.la
+endif
+
 if BUILD_PLUGIN_INTERFACE
 pkglib_LTLIBRARIES += interface.la
 interface_la_SOURCES = interface.c \

@@ -116,6 +116,10 @@ Features
     - hddtemp
       Hard disk temperatures using hddtempd.
 
+    - humidity
+      Using digital humidity  sensor HIH6130/HIH6131 form Honeywell
+      provides relative humidity amd temperature readings.
+
     - interface
       Interface traffic: Number of octets, packets and errors for each
       interface.
